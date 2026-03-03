@@ -1,7 +1,7 @@
-```markdown
-**NeuroMath**
 
-## Usage
+# NeuroMath
+
+**Usage**
 
 ### 1️⃣ CLI Mode
 
