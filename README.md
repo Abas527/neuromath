@@ -1,5 +1,5 @@
 ```markdown
-# NeuroMath
+**NeuroMath**
 
 ## Usage
 
