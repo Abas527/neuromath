@@ -132,18 +132,6 @@ pip install -e .[dev]
 pytest
 ```
 
-5. **Build package:**
-
-```bash
-python -m build
-```
-
-6. **Upload to PyPI:**
-
-```bash
-twine upload dist/*
-```
-
 ---
 
 ##  Testing
@@ -192,6 +180,5 @@ MIT License
 ---
 
 ## 👨‍💻 Author
-
 Anil Khatiwada
-```
+
