@@ -1,6 +1,7 @@
 import os
 import sys
 import streamlit as st
+import plotly.graph_objects as go
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -15,7 +16,7 @@ from neuromath.interpreter.interpreter import Interpreter
 st.set_page_config(page_title="NeuroMath Notebook", layout="wide")
 
 st.title(" NeuroMath Notebook")
-st.markdown("Mini Wolfram-style symbolic computation interface")
+st.markdown("Notebook style symbolic computation interface")
 
 
 
@@ -78,14 +79,17 @@ if st.button("▶ Run Cell"):
             # Lexing
             lexer = Lexer(user_input)
             tokens = lexer.tokenize()
-            print(tokens)
-
             # Parsing
             parser = Parser(tokens)
             ast = parser.parse()
 
+
             # Interpret
             result = interpreter.interpret(ast)
+
+
+            if isinstance(result,go.Figure):
+                st.plotly_chart(result,key=f"output_{st.session_state.cell_counter}")
 
             # Save updated state
             st.session_state.variables = interpreter.variables
@@ -94,8 +98,6 @@ if st.button("▶ Run Cell"):
             # Clean float display
             if isinstance(result, float) and abs(result - round(result)) < 1e-9:
                 result = round(result)
-            
-            print(result)
 
             # Save to history
             st.session_state.history.append({
