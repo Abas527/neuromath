@@ -109,7 +109,7 @@ neuromath/
 1. **Clone repository:**
 
 ```bash
-git clone https://github.com/yourusername/neuromath.git
+git clone https://github.com/Abas527/neuromath.git
 cd neuromath
 ```
 
@@ -133,36 +133,108 @@ pytest
 ```
 
 ---
+### Functions
 
-##  Testing
+## Built-in Functions
 
-NeuroMath includes unit tests for:
+### Basic Operations
 
-- Lexer
-- Parser
-- Interpreter
-- Function evaluation
-- Differentiation
+| Function | Description |
+|----------|-------------|
+| `print(value)` | Print output to console |
+| `typeof(value)` | Get type of value |
+| `shape(matrix)` | Get matrix dimensions |
+| `det(matrix)` | Calculate matrix determinant |
+| `trans(matrix)` | Transpose matrix |
+| `inv(matrix)` | Calculate matrix inverse |
 
-**Run:**
+###  Matrix Operations
 
-```bash
-pytest
+| Function | Description |
+|----------|-------------|
+| `identity(n)` | Create n×n identity matrix |
+| `zeroes(rows, cols)` | Create matrix filled with zeros |
+| `dot(v1, v2)` | Dot product of vectors |
+| `cross(v1, v2)` | Cross product of vectors |
+| `norm(v)` | Vector norm/magnitude |
+| `unit(v)` | Convert to unit vector |
+
+###  Linear Algebra Functions
+
+| Function | Description |
+|----------|-------------|
+| `eigenval(matrix)` | Calculate eigenvalues |
+| `eigenvec(matrix)` | Calculate eigenvectors |
+| `solve_linear(A, b)` | Solve linear system Ax = b |
+
+### Visualization
+
+| Function | Description |
+|----------|-------------|
+| `plot(f(x), x, start, end)` | Create 2D function plot |
+| `plot_surface(f(x,y), x, y, x_start, x_end, y_start, y_end)` | Create 3D surface plot |
+
+---
+
+## Math Functions
+
+### 📐 Trigonometric Functions
+
+| Function | Description |
+|----------|-------------|
+| `sin(x)` | Sine of angle x |
+| `cos(x)` | Cosine of angle x |
+| `tan(x)` | Tangent of angle x |
+| `arcsin(x)` | Inverse sine (arcsine) |
+| `arccos(x)` | Inverse cosine (arccosine) |
+| `arctan(x)` | Inverse tangent (arctangent) |
+
+### Exponential & Logarithmic Functions
+
+| Function | Description |
+|----------|-------------|
+| `exp(x)` | Exponential (e^x) |
+| `log(x)` or `ln(x)` | Natural logarithm |
+| `sqrt(x)` | Square root |
+| `abs(x)` | Absolute value |
+| `pow(x, y)` | Power (x^y) |
+
+---
+
+## Symbolic Functions
+
+### Calculus & Algebra
+
+| Function | Description |
+|----------|-------------|
+| `integrate(f(x), x)` | Perform symbolic integration |
+| `diff(f(x), x)` | Perform symbolic differentiation |
+| `limit(f(x), x, point)` | Calculate limit at a point |
+| `solve(equation, variable)` | Solve algebraic equations |
+| `summation(expr, (var, start, end))` | Compute series summation |
+| `simplify(expr)` | Simplify mathematical expressions |
+| `factor(expr)` | Factor algebraic expressions |
+
+---
+
+## Quick Examples
+
+```mathscript
+// Matrix operations
+A = identity(3)
+B = zeroes(2, 3)
+det_A = det(A)
+
+// Calculus
+f(x) = x^2 + 3x + 2
+derivative = diff(f(x), x)
+integral = integrate(f(x), x)
+
+// Visualization
+plot(sin(x), x, 0, 2π)
 ```
 
 ---
-
-## 🔮 Roadmap
-
-- Integration support
-- Matrix operations
-- Simplification engine
-- LaTeX output
-- Jupyter kernel support
-- Neural-symbolic extensions
-
----
-
 ## 🤝 Contributing
 
 Contributions are welcome!
