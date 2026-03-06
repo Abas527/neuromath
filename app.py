@@ -2,6 +2,7 @@ import os
 import sys
 import streamlit as st
 import plotly.graph_objects as go
+import uuid
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))

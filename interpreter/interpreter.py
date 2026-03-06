@@ -1,4 +1,5 @@
 import math
+import random
 import numpy as np
 import sympy as sp
 from neuromath.lexer.token_types import TokenType
@@ -40,6 +41,10 @@ class Interpreter:
             "cross":self.cross_product,
             "norm":self.norm,
             "unit":self.unit_vector,
+            "num":self.to_numeric,
+            "random_vector":self.random_vector,
+            "random_matrix":self.random_matrix,
+            "random":self.random_number,
 
             # symbolic math functions
             "integrate":self.sym_integrate,
@@ -54,6 +59,7 @@ class Interpreter:
             "eigenvec":self.np_eigenvectors,
             "plot":self.plot,
             "plot_surface":self.plot_surface,
+            "plot_vector":self.plot_vector
 
         }
         self.symbolic_functions={"integrate","diff","limit","solve","summation","simplify","factor"}
@@ -82,10 +88,9 @@ class Interpreter:
 
     # to_sympy (AST->sympy expression)
     def to_sympy(self,node,symbolic_mode=False):
-        if isinstance(node,Identifier):
-            if symbolic_mode:
-                return sp.Symbol(node.name)
-            elif node.name in self.variables:
+        
+        if isinstance(node,Identifier):            
+            if node.name in self.variables:
                 return sp.Number(self.variables[node.name])
             return sp.Symbol(node.name)
         elif isinstance(node,Number):
@@ -224,10 +229,47 @@ class Interpreter:
 
     def to_numeric(self,val):
         import sympy as sp
+
         if isinstance(val,sp.Basic):
             return float(val.evalf())
+        elif isinstance(val,sp.Expr):
+            if self.variables[str(val)]:
+                return self.variables[str(val)]
+            else:
+                raise Exception(f"Undefined variable '{str(val)}'")
         else:
             return float(val)
+    def plot_vector(self,node):
+
+        x=node.arguments[0]
+        y=node.arguments[1]
+        is_line=self.interpret(node.arguments[2])
+
+        import plotly.graph_objects as go
+        import numpy as np
+
+        if isinstance(x,Vector) and isinstance(y,Vector):
+            x=[self.interpret(e) for e in x.elements]
+            y=[self.interpret(e) for e in y.elements]
+        elif isinstance(x,Identifier) and isinstance(y,Identifier):
+            if x.name in self.variables and y.name in self.variables:
+                x=self.variables[x.name]
+                y=self.variables[y.name]
+                x=self.vector_to_list(x)
+                y=self.vector_to_list(y)
+        else:
+            raise Exception("Both x and y must be vectors")
+        
+        if is_line==1:
+            print(True)
+            fig = go.Figure(data=[go.Scatter(x=x, y=y, mode="lines")])
+        else:
+            print(False)
+            fig = go.Figure(data=[go.Scatter(x=x, y=y, mode="markers")])
+        return fig
+
+
+        
 
     def manage_plot(self,node):
 
@@ -279,6 +321,8 @@ class Interpreter:
         
         if node.name=="plot_surface":
             return self.manage_plot(node)
+        if node.name=="plot_vector":
+            return self.plot_vector(node)
 
             
 
@@ -310,14 +354,35 @@ class Interpreter:
         if len(args)!=len(func.parameters):
             raise Exception(f"Expected {len(func.parameters)} arguments but got {len(args)}")
         
-        old_variable=self.variables.copy()
+        is_vector=any(isinstance(arg,Vector) for arg in args)
 
-        for param, arg in zip(func.parameters, args):
-            self.variables[param.name]=arg
+        if is_vector:
 
-        result=self.interpret(func.body)
-        self.variables=old_variable
-        return result
+            lengths=[self.matrix_shape(arg)[1] for arg in args]
+            if not all(length==lengths[0] for length in lengths):
+                raise Exception("All vectors must have the same length")
+            
+            results=[]
+            for i in range(lengths[0]):
+                old_variables=self.variables.copy()
+                for param,arg in zip(func.parameters,args):
+                    arg=self.vector_to_list(arg)
+                    if isinstance(arg,list):
+                        self.variables[param.name]=arg[i]
+                    else:
+                        self.variables[param.name]=arg
+                results.append(self.interpret(func.body))
+                self.variables=old_variables
+            return Vector(results)
+        else:
+            old_variable=self.variables.copy()
+
+            for param, arg in zip(func.parameters, args):
+                self.variables[param.name]=arg
+
+            result=self.interpret(func.body)
+            self.variables=old_variable
+            return result
     
 
     def scalar_vector_mul(self,vector,scale):
@@ -329,7 +394,12 @@ class Interpreter:
         for row in node.rows:
             matrix.append([self.interpret(element) for element in row])
         return Matrix(matrix)
-    
+    def random_number(self,start=0,end=100):
+        return random.randint(start,end)
+    def random_vector(self,n,start=0,end=100):
+        return Vector([random.randint(start,end) for _ in range(n)])  
+    def random_matrix(self,m,n,start=0,end=100):
+        return Matrix([[random.randint(start,end) for _ in range(n)] for _ in range(m)])
     def visit_Vector(self,node):
         return Vector([self.interpret(element) for element in node.elements])
     
