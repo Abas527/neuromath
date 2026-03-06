@@ -226,12 +226,12 @@ B = zeroes(2, 3)
 det_A = det(A)
 
 // Calculus
-f(x) = x^2 + 3x + 2
+f(x) = x^2 + 3*x + 2
 derivative = diff(f(x), x)
 integral = integrate(f(x), x)
 
 // Visualization
-plot(sin(x), x, 0, 2π)
+plot(sin(x), x, 0, 2*pi)
 ```
 
 ---
