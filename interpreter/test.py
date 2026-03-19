@@ -26,19 +26,15 @@ def run_test(code):
 
 
 
-# # ================================
-# # NEUROMATH COMPLETE STRESS FILE
-# # 50 COMPLEX EDGE TEST CASES
-# # ================================
 
 
-#0
+# 0
 # test0="y=sqrt(5)\na=num(y)\nb=num((1+a)/2)\nc=num((1-a)/2)\nf(x)=(b^x-c^x)/a\nplot(f(x),x,0,10)"
 # run_test(test0)
 
 # 1
-test1="v=[1,2,3]\nw=[4,5,6]\nf(x,y,z)=x^2+y^2+z^2\nf(2,3,4)\n"
-run_test(test1)
+# test1="v=[1,2,3]\nw=[4,5,6]\nf(x,y,z)=x^2+y^2+z^2\nf(2,3,4)\n"
+# run_test(test1)
 
 # # 2
 # test2="v=[1,2,3]\n w=[-1,-2,-3]\n v+w"
@@ -65,7 +61,7 @@ run_test(test1)
 # run_test(test7)
 
 # # 8
-# test8="f(x)=x^5-4*x^3+x\n plot(f(x),x,-10,10)"
+# test8="pi"
 # run_test(test8)
 
 # # 9
@@ -235,3 +231,12 @@ run_test(test1)
 # # 50
 # test50="f(x,y)=exp(sin(x^2+y^2))+cos(x*y)\n plot_surface(f(x,y),x,y,-5,5,-5,5)"
 # run_test(test50)
+
+
+#51
+# test51="y=[45,70,100,60,90,110]\n x=[1400,400,50,1000,300,60] \ny_cap=[600.0, 200.0, 60.0, 440.0, 160.0, 64.0]\n plot_vector(x,[y,y_cap],0)"
+# run_test(test51)
+
+#52 plot 3d functions
+test52="f(x,y,z)=x^2+y^2+z^2\n plot3d(f(x,y,z),x,y,z,-10,10,-10,10,-10,10)"
+run_test(test52)

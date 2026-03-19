@@ -7,12 +7,13 @@ from neuromath.parser.ast_nodes import *
 
 class Interpreter:
     def __init__(self,variables=None,functions=None):
-        self.variables =variables if variables is not None else {
-            "pi": math.pi,
-            "e": math.e,
-        }
         self.sp=sp
         self.np=np
+        self.variables =variables if variables is not None else {
+            "pi": float(sp.pi),
+            "e": float(sp.E),
+        }
+
         self.math_functions = {
             "sin":sp.sin,
             "cos":sp.cos,
@@ -26,6 +27,21 @@ class Interpreter:
             "sqrt":sp.sqrt,
             "abs":sp.Abs,
             "pow":sp.Pow,
+        }
+        self.numeric_functions={
+            "sin":np.sin,
+            "cos":np.cos,
+            "tan":np.tan,
+            "arcsin":np.arcsin,
+            "arccos":np.arccos,
+            "arctan":np.arctan,
+            "log":np.log,
+            "ln":np.log,
+            "exp":np.exp,
+            "sqrt":np.sqrt,
+            "abs":np.abs,
+            "pow":np.power,
+
         }
         self.functions= functions if functions is not None else {}
         self.builtins={
@@ -45,6 +61,19 @@ class Interpreter:
             "random_vector":self.random_vector,
             "random_matrix":self.random_matrix,
             "random":self.random_number,
+            "sum":self.sum,
+            "svd":self.svd,
+            "rank":self.rank,
+            "trace":self.trace,
+            "sigmoid":self.sigmoid,
+            "relu":self.relu,
+            "softmax":self.softmax,
+            "tanh":self.tanh,
+            "mean":self.mean,
+            "median":self.median,
+            "std":self.std,
+            "cov":self.cov,
+            "corr":self.corr,
 
             # symbolic math functions
             "integrate":self.sym_integrate,
@@ -54,15 +83,20 @@ class Interpreter:
             "summation":self.sym_summation,
             "simplify":self.sym_simplify,
             "factor":self.sym_factor,
+            "explain":self.sym_explain,
             "eigenval":self.np_eigenvalues,
             "solve_linear":self.np_solve_linear,
             "eigenvec":self.np_eigenvectors,
             "plot":self.plot,
             "plot_surface":self.plot_surface,
-            "plot_vector":self.plot_vector
+            "plot_vector":self.plot_vector,
+            "plot3d":self.plot3d,
+            "gradient":self.gradient,
+            "gradient_descent":self.gradient_descent
+
 
         }
-        self.symbolic_functions={"integrate","diff","limit","solve","summation","simplify","factor"}
+        self.symbolic_functions={"integrate","gradient","gradient_descent","explain","diff","limit","solve","summation","simplify","factor"}
     
     def interpret(self,node):
         method_name = f"visit_{type(node).__name__}"
@@ -119,6 +153,7 @@ class Interpreter:
             else:
                 raise Exception(f"Unknown binary operator '{node.op}'")
         elif isinstance(node,FunctionCall):
+
             # special case for plot function
             
             if node.name in self.functions:
@@ -155,6 +190,7 @@ class Interpreter:
         return node.value
     
     def visit_Identifier(self,node):
+        print(self.variables)
         if node.name in self.variables:
             return self.variables[node.name]
         else:
@@ -181,14 +217,22 @@ class Interpreter:
                 return self.vector_add(left,right)
             elif node.op==TokenType.MINUS:
                 return self.vector_sub(left,right)
-            
+            elif node.op==TokenType.MUL:
+                return self.vector_mul(left,right)
             else:
                 raise Exception(f"Unsupported operator '{node.op}' for vectors")
-        elif (isinstance(right,Vector) or isinstance(right,list)) and isinstance(left,(int,float)):
+        elif isinstance(right,Vector) and isinstance(left,(int,float)) or isinstance(right,(int,float)) and isinstance(left,Vector):
             if node.op==TokenType.MUL:
                 return self.scalar_vector_mul(right,left)
+            elif node.op==TokenType.DIV:
+                return self.scalar_vector_div(right,left)
+            elif node.op==TokenType.PLUS:
+                return self.scalar_vector_add(right,left)
+            elif node.op==TokenType.MINUS:
+                return self.scalar_vector_sub(right,left)
             else:
                 raise Exception(f"Unsupported operator '{node.op}' for scalar-vector multiplication")
+        
         elif isinstance(left,Matrix) and isinstance(right,Matrix):
             if node.op==TokenType.PLUS:
                 return self.matrix_add(left,right)
@@ -227,18 +271,45 @@ class Interpreter:
             raise Exception(f"Unknown binary operator '{op}'")
 
 
-    def to_numeric(self,val):
+    def to_numeric(self, val):
+
         import sympy as sp
 
-        if isinstance(val,sp.Basic):
-            return float(val.evalf())
-        elif isinstance(val,sp.Expr):
-            if self.variables[str(val)]:
-                return self.variables[str(val)]
-            else:
-                raise Exception(f"Undefined variable '{str(val)}'")
-        else:
+        # Direct numeric types
+        if isinstance(val, (int, float)):
             return float(val)
+
+        # SymPy numbers
+        if isinstance(val, sp.Number):
+            return float(val)
+
+        # Infinity handling
+        if val in (sp.oo, -sp.oo, sp.zoo):
+            return float("inf")
+
+        # Symbol handling
+        if isinstance(val, sp.Symbol):
+            name = str(val)
+
+            if name in self.variables:
+                return float(self.variables[name])
+            else:
+                raise Exception(f"Undefined variable '{name}'")
+
+        # General SymPy expressions
+        if isinstance(val, sp.Expr):
+            if val.free_symbols:
+                val = val.subs(self.variables)
+
+            val = sp.N(val, 15)
+            try:
+                return float(val)
+
+            except Exception as e:
+                raise Exception(f"Cannot convert expression '{val}' to float")
+
+        # fallback
+        return float(val)
     def plot_vector(self,node):
 
         x=node.arguments[0]
@@ -248,23 +319,45 @@ class Interpreter:
         import plotly.graph_objects as go
         import numpy as np
 
+        fig=go.Figure()
+
+
         if isinstance(x,Vector) and isinstance(y,Vector):
             x=[self.interpret(e) for e in x.elements]
             y=[self.interpret(e) for e in y.elements]
+        elif isinstance(x,Vector) and isinstance(y,Matrix):
+            x=[self.interpret(e) for e in x.elements]
         elif isinstance(x,Identifier) and isinstance(y,Identifier):
             if x.name in self.variables and y.name in self.variables:
                 x=self.variables[x.name]
                 y=self.variables[y.name]
                 x=self.vector_to_list(x)
                 y=self.vector_to_list(y)
+        elif isinstance(x,Identifier) and isinstance(y,Vector):
+            if x.name in self.variables:
+                x=self.variables[x.name]
+                x=self.vector_to_list(x)
+            y_vars=self.vector_to_list(self.interpret(y))
+            # plot multiple lines with respect to x
+            if is_line==1:
+                def_mode="lines"
+            else:
+                def_mode="markers"
+            count=0
+            for y in y_vars:
+                y=self.vector_to_list(y)
+                if count==len(y_vars)-1:
+                    def_mode="lines"
+                fig.add_trace(go.Scatter(x=x, y=y, mode=def_mode))
+                count+=1
+            return fig
         else:
             raise Exception("Both x and y must be vectors")
         
         if is_line==1:
-            print(True)
             fig = go.Figure(data=[go.Scatter(x=x, y=y, mode="lines")])
         else:
-            print(False)
+
             fig = go.Figure(data=[go.Scatter(x=x, y=y, mode="markers")])
         return fig
 
@@ -308,21 +401,34 @@ class Interpreter:
 
         # Call surface plot for all expressions
             return self.plot_surface(exprs, sym_x_var, sym_y_var, start_x, end_x, start_y, end_y)
-
+        elif num_vars==3:
+            sym_x_var, sym_y_var, sym_z_var = node.arguments[1].name, node.arguments[2].name, node.arguments[3].name
+            sym_x_var, sym_y_var, sym_z_var = sp.Symbol(sym_x_var), sp.Symbol(sym_y_var), sp.Symbol(sym_z_var)
+            start_x = self.to_numeric(self.interpret(node.arguments[4]))
+            end_x = self.to_numeric(self.interpret(node.arguments[5]))
+            start_y = self.to_numeric(self.interpret(node.arguments[6]))
+            end_y = self.to_numeric(self.interpret(node.arguments[7]))
+            start_z = self.to_numeric(self.interpret(node.arguments[8]))
+            end_z = self.to_numeric(self.interpret(node.arguments[9]))
+            return self.plot3d(exprs, sym_x_var, sym_y_var, sym_z_var, start_x, end_x, start_y, end_y, start_z, end_z)
         else:
             raise Exception(
-                f"Invalid number of variables ({num_vars}) for plot function. Only 1D or 2D supported."
+                f"Invalid number of variables ({num_vars}) for plot function. Only 1D or 2D or 3D supported."
             )
     def visit_FunctionCall(self, node: FunctionCall):
 
         #special case for plot function
         if node.name=="plot":
             return self.manage_plot(node)
+        if node.name=="plot3d":
+            return self.manage_plot(node)
         
         if node.name=="plot_surface":
             return self.manage_plot(node)
         if node.name=="plot_vector":
             return self.plot_vector(node)
+        if node.name=="gradient_descent":
+            return self.manage_gradient(node)
 
             
 
@@ -342,8 +448,12 @@ class Interpreter:
             args = [self.interpret(arg) for arg in node.arguments]
             return self.builtins[node.name](*args)
         elif node.name in self.math_functions:
-            args = [self.to_sympy(arg,symbolic_mode=True) for arg in node.arguments]
-            return self.math_functions[node.name](*args)
+            try:
+                args = [self.interpret(arg) for arg in node.arguments]
+                return self.numeric_functions[node.name](*args)
+            except:
+                args = [self.to_sympy(arg,symbolic_mode=True) for arg in node.arguments]
+                return self.math_functions[node.name](*args)
 
         else:
             raise Exception(f"Undefined function '{node.name}'")
@@ -384,10 +494,25 @@ class Interpreter:
             self.variables=old_variable
             return result
     
+    def scalar_or_vector(self,node1,node2):
+        if isinstance(node1,Vector):
+            return self.vector_to_list(node1),node2
+        else:
+            return self.vector_to_list(node2),node1
 
     def scalar_vector_mul(self,vector,scale):
-        vector=self.vector_to_list(vector)
-        return [scale*element for element in vector]
+        vector,scale=self.scalar_or_vector(vector,scale)
+        return Vector([scale*element for element in vector])
+    def scalar_vector_div(self,vector,scale):
+        vector,scale=self.scalar_or_vector(vector,scale)
+        return Vector([element/scale for element in vector])
+    def scalar_vector_add(self,vector,scale):
+        vector,scale=self.scalar_or_vector(vector,scale)
+        print(type(vector),type(scale))
+        return Vector([element+scale for element in vector])
+    def scalar_vector_sub(self,vector,scale):
+        vector,scale=self.scalar_or_vector(vector,scale)
+        return Vector([element-scale for element in vector])
 
     def visit_Matrix(self,node):
         matrix=[]
@@ -420,7 +545,13 @@ class Interpreter:
         if len(v1)!=len(v2):
             raise Exception("Vectors must have the same length for addition")
         return Vector([v1[i]+v2[i] for i in range(len(v1))])
-    
+    def vector_mul(self,v1,v2):
+        v1=self.vector_to_list(v1)
+        v2=self.vector_to_list(v2)
+
+        if len(v1)!=len(v2):
+            raise Exception("Vectors must have the same length for multiplication")
+        return Vector([v1[i]*v2[i] for i in range(len(v1))])
     def vector_sub(self,v1,v2):
         v1=self.vector_to_list(v1)
         v2=self.vector_to_list(v2)
@@ -608,6 +739,117 @@ class Interpreter:
     def sym_summation(self,expr, var, start, end):
         return self.sp.summation(expr, (var, start, end))
     
+    def sym_explain(self,expr):
+
+
+        # check free symbols
+        var_list=list(expr.free_symbols)
+
+        if not var_list:
+            return f"Expression {expr} is constant"
+        
+        if len(var_list)>1:
+            return f"Expression {expr} has multiple variables: {var_list}"
+        
+        var=var_list[0]
+        
+        result={}
+        result["function"]=self.sp.simplify(expr)
+        result["derivative"]=self.sp.diff(expr,var)
+        result["integral"]=self.sp.integrate(expr,var)
+        result["limit->0"]=self.sp.limit(expr,var,0)
+        result["solve"]=self.sp.solve(expr,var)
+        result["factor"]=self.sp.factor(expr)
+        result["series"]=self.sp.series(expr,var)
+
+        result["critical_points"]=self.sp.solve(self.sp.diff(expr,var),var)
+        
+        result["second_derivative"]=self.sp.diff(self.sp.diff(expr,var),var)
+        result["inflection_point"]=sp.solve(self.sp.diff(self.sp.diff(expr,var),var),var)
+
+        start_point=min(result["critical_points"] if result["critical_points"] else [-50])
+        end_point=max(result["critical_points"] if result["critical_points"] else [50])
+
+        if isinstance(result["derivative"],sp.Number):
+            fig=self.plot(result["function"],var,start_point,end_point,False)
+        elif isinstance(result["second_derivative"],sp.Number):
+            fig=self.plot([result["function"],result["derivative"]],var,start_point,end_point,False)
+        else:
+            fig=self.plot([result["function"],result["derivative"],result["second_derivative"]],var,start_point,end_point,False)
+
+        output=f"""
+Expression: {expr} \n
+
+Function: {result["function"]} \n
+Derivative: {result["derivative"]} \n
+Integral: {result["integral"]} \n 
+Limit -> 0: {result["limit->0"]} \n
+Solve: {result["solve"]} \n
+Factor: {result["factor"]} \n
+Series: {result["series"]} \n
+
+Critical Points: {result["critical_points"]} \n
+Second Derivative: {result["second_derivative"]} \n
+Inflection Point: {result["inflection_point"]} \n
+"""
+
+        return output
+
+    def gradient(self,expr):
+        
+        vars=list(expr.free_symbols)
+        grad=[]
+
+        for var in vars:
+            grad.append(self.sp.diff(expr,var))
+        
+        return grad
+    
+    def manage_gradient(self,node):
+        expr=self.to_sympy(node.arguments[0],symbolic_mode=True)
+        if isinstance(node.arguments[1],Vector):
+            vars=Vector([self.to_sympy(v,symbolic_mode=True) for v in node.arguments[1].elements])
+        else:
+            vars=self.to_sympy(node.arguments[1],symbolic_mode=True)
+        if isinstance(node.arguments[2],Vector):
+            start=Vector([self.to_sympy(v,symbolic_mode=True) for v in node.arguments[2].elements])
+        else:
+            start=self.to_sympy(node.arguments[2],symbolic_mode=True)
+        steps=self.interpret(node.arguments[3])
+        lr=self.interpret(node.arguments[4]) if len(node.arguments)>4 else 0.1
+
+        return self.gradient_descent(expr,vars,start,steps,lr)
+
+
+    def gradient_descent(self,expr,var,start,steps,lr=0.1):
+
+        if isinstance(var,Vector):
+            vars=self.vector_to_list(var)
+            starts=self.vector_to_list(start)
+            gradients=self.gradient(expr)
+            if len(vars)!=len(gradients):
+                raise Exception("Number of variables and gradients must be equal")
+
+            for j in range(steps):
+                
+                for i in range(len(vars)):
+                    gr_val=gradients[i].subs(vars[i],starts[i])
+                    starts[i]=starts[i]-lr*gr_val
+            return Vector(starts)
+        else:
+            var_start=start
+            gradeint=self.sp.diff(expr,var)
+            for i in range(steps):
+                gr_val=gradeint.subs(var,start)
+                start=start-lr*gr_val
+
+            return start
+
+
+             
+
+
+
     def sym_simplify(self,expr):
         return self.sp.simplify(expr)
     def sym_factor(self,expr):
@@ -638,10 +880,11 @@ class Interpreter:
         numpy_matrix=np.array(matrix)
         return Vector(np.linalg.eig(numpy_matrix)[1])  # Return eigenvectors only
     
-    def plot(self,exprs,var,start,end,num_points=1000):
+    def plot(self,exprs,var,start,end,ishow=False,num_points=1000):
         import plotly.graph_objects as go
         import numpy as np
         from sympy import lambdify,Symbol
+        
 
         if not isinstance(var,Symbol):
             var=Symbol(var)
@@ -661,7 +904,7 @@ class Interpreter:
             # Convert symbolic expr to numeric function
             f_numeric = lambdify(var, expr, modules=["numpy"])
             x_vals = np.linspace(start, end, num_points)
-            y_vals = f_numeric(x_vals)
+            y_vals = f_numeric(x_vals)            
 
             # Add trace
             fig.add_trace(go.Scatter(x=x_vals, y=y_vals, mode="lines", name=str(expr)))
@@ -672,6 +915,9 @@ class Interpreter:
                 yaxis_title="f({})".format(var),
                 template="plotly_white"
             )
+        
+        if ishow:
+            fig.show()
 
         return fig
 
@@ -716,8 +962,129 @@ class Interpreter:
 
         return fig
 
+    def plot3d(self, exprs, var1, var2, var3,
+               start1, end1, start2, end2, start3, end3,
+               num_points=30, num_slices=10):
 
+        import plotly.graph_objects as go
+        import numpy as np
+        from sympy import lambdify, Symbol
 
+    # --- Ensure symbols ---
+        var1 = Symbol(var1) if not isinstance(var1, Symbol) else var1
+        var2 = Symbol(var2) if not isinstance(var2, Symbol) else var2
+        var3 = Symbol(var3) if not isinstance(var3, Symbol) else var3
 
-    # def vector_to_list(self,vector):
-    #     return [element for element in vector.elements]
+    # --- Convert bounds ---
+        start1, end1 = self.to_numeric(start1), self.to_numeric(end1)
+        start2, end2 = self.to_numeric(start2), self.to_numeric(end2)
+        start3, end3 = self.to_numeric(start3), self.to_numeric(end3)
+
+        num_points = int(num_points)
+        num_slices = int(num_slices)
+
+    # --- Generate 2D grid (x, y only) ---
+        x_vals = np.linspace(start1, end1, num_points)
+        y_vals = np.linspace(start2, end2, num_points)
+        x, y = np.meshgrid(x_vals, y_vals)
+
+    # --- Slice values along z ---
+        z_slices = np.linspace(start3, end3, num_slices)
+
+        fig = go.Figure()
+
+        for expr in exprs:
+            f_numeric = lambdify((var1, var2, var3), expr, modules=["numpy"])
+
+            all_x, all_y, all_z, all_vals = [], [], [], []
+
+            for z_val in z_slices:
+                z_plane = np.full_like(x, z_val)
+
+                vals = f_numeric(x, y, z_val)  # ⚡ only 2D computation
+
+                all_x.append(x)
+                all_y.append(y)
+                all_z.append(z_plane)
+                all_vals.append(vals)
+
+        # --- Stack slices ---
+            X = np.stack(all_x, axis=2)
+            Y = np.stack(all_y, axis=2)
+            Z = np.stack(all_z, axis=2)
+            V = np.stack(all_vals, axis=2)
+
+            fig.add_trace(go.Isosurface(
+                x=X.flatten(),
+                y=Y.flatten(),
+                z=Z.flatten(),
+                value=V.flatten(),
+                name=str(expr),
+                surface_count=4,
+                caps=dict(x_show=False, y_show=False)
+            ))
+
+        fig.update_layout(
+            title="3D Function Plot (Sliced)",
+            scene=dict(
+                xaxis_title=str(var1),
+                yaxis_title=str(var2),
+                zaxis_title=str(var3),
+                aspectratio=dict(x=1, y=1, z=1),
+            ),
+            template="plotly_white"
+        )
+
+        return fig
+    def sum(self,v1):
+        v1=self.np.array(self.vector_to_list(v1))
+        return self.np.sum(v1)
+    def mean(self,v1):
+        v1=self.np.array(self.vector_to_list(v1))
+        return self.np.mean(v1)
+    def median(self,v1):
+        v1=self.np.array(self.vector_to_list(v1))
+        return self.np.median(v1)
+    def std(self,v1):
+        v1=self.np.array(self.vector_to_list(v1))
+        return self.np.std(v1)
+    def cov(self,v1,v2):
+        v1=self.np.array(self.vector_to_list(v1))
+        v2=self.np.array(self.vector_to_list(v2))
+        return Matrix(self.np.cov(v1,v2))
+    def corr(self,v1,v2):
+        v1=self.np.array(self.vector_to_list(v1))
+        v2=self.np.array(self.vector_to_list(v2))
+        return Matrix(self.np.corrcoef(v1,v2))
+    def sigmoid(self,x):
+        x=self.to_numeric(x)
+        return 1 / (1 + self.np.exp(-x))
+    
+    def relu(self,x):
+        x=self.to_numeric(x)
+        return self.np.maximum(0, x)
+    
+    def softmax(self,x):
+        if isinstance(x,Vector):
+            x=self.np.array(self.vector_to_list(x))
+            return Vector(self.np.exp(x) / self.np.sum(self.np.exp(x)))
+        else:
+            raise Exception("Input must be a vector")
+    
+    def tanh(self,x):
+        x=self.to_numeric(x)
+        return (self.np.exp(x) - self.np.exp(-x)) / (self.np.exp(x) + self.np.exp(-x))
+    
+    def rank(self,A):
+        A=self.np.array(self.matrix_to_list(A))
+        return self.np.linalg.matrix_rank(A)
+    
+    def trace(self,A):
+        A=self.np.array(self.matrix_to_list(A))
+        return self.np.trace(A)
+    
+    def svd(self,A):
+        A=self.np.array(self.matrix_to_list(A))
+        return self.np.linalg.svd(A)
+
+        

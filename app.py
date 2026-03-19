@@ -3,6 +3,8 @@ import sys
 import streamlit as st
 import plotly.graph_objects as go
 import uuid
+import sympy as sp
+import math
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -22,7 +24,15 @@ st.markdown("Notebook style symbolic computation interface")
 
 
 if "variables" not in st.session_state:
-    st.session_state.variables = {}
+
+    st.session_state.variables = {
+
+        'pi': math.pi,
+        'e': math.e,
+        'π': math.pi,
+        'tau': 2 * math.pi,
+        'inf': float('inf')
+    }
 
 if "functions" not in st.session_state:
     st.session_state.functions = {}
@@ -61,7 +71,7 @@ st.markdown(f"### In [{st.session_state.cell_counter}]:")
 user_input = st.text_area(
     "Enter NeuroMath expression",
     key=f"input_{st.session_state.cell_counter}",
-    height=120
+    height=200
 )
 
 if st.button("▶ Run Cell"):
@@ -88,7 +98,6 @@ if st.button("▶ Run Cell"):
             # Interpret
             result = interpreter.interpret(ast)
 
-
             if isinstance(result,go.Figure):
                 st.plotly_chart(result,key=f"output_{st.session_state.cell_counter}")
 
@@ -99,6 +108,11 @@ if st.button("▶ Run Cell"):
             # Clean float display
             if isinstance(result, float) and abs(result - round(result)) < 1e-9:
                 result = round(result)
+
+            if (isinstance(result, float) or isinstance(result, int)) and result > 1e10:
+                result = 'inf'
+            if (isinstance(result, float) or isinstance(result, int)) and result < - 1e10:
+                result = '-inf'
 
             # Save to history
             st.session_state.history.append({
